@@ -381,6 +381,15 @@ class SwipeProvider extends ChangeNotifier {
 
   // Detect available drives
   Future<void> detectDrives() async {
+    // Reset wipeCompleted flag when detecting drives
+    wipeCompleted = false;
+
+    // Clear system logs
+    logText = '';
+    systemLogText = '';
+    wipeLogText = '';
+    last3Lines = [];
+
     final detectMsg = 'Detecting drives';
     log(detectMsg);
     logText += '$detectMsg...\n';
@@ -450,6 +459,13 @@ class SwipeProvider extends ChangeNotifier {
 
     // Reset wipeCompleted flag when starting a new wipe
     wipeCompleted = false;
+
+    // Clear any previous completion messages
+    logText = logText.replaceAll('Wipe operation completed successfully', '');
+    systemLogText = systemLogText.replaceAll(
+      'Wipe operation completed successfully',
+      '',
+    );
     notifyListeners();
 
     try {
@@ -494,8 +510,14 @@ class SwipeProvider extends ChangeNotifier {
       systemLogText += '\n$completeMsg';
       log(completeMsg);
       isWiping = false;
-      wipeCompleted =
-          true; // Set this flag to true to show the PDF report button
+
+      // Set this flag to true to show the PDF report button
+      wipeCompleted = true;
+
+      // Add a clear success message to the logs
+      final successMsg = 'Wipe operation completed successfully!';
+      wipeLogText += '\n$successMsg';
+      systemLogText += '\n$successMsg';
       notifyListeners();
     } catch (e) {
       final errorMsg = 'Error during drive erase: $e';

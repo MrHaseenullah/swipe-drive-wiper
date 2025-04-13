@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:swipe/nwipe_services.dart';
 import 'package:swipe/pdf_generator.dart';
@@ -11,14 +10,14 @@ class PdfReportButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<SwipeProvider>(
       builder: (context, swipeProvider, child) {
-        // Show the button when wipe is completed
-        if (!swipeProvider.wipeCompleted) {
-          return const SizedBox.shrink(); // Don't show if wipe not completed
+        // Only show the button when wipe is completed and not currently wiping
+        if (!swipeProvider.wipeCompleted || swipeProvider.isWiping) {
+          return const SizedBox.shrink(); // Don't show if wipe not completed or still in progress
         }
 
         // Debug log to verify the button should be showing
         debugPrint(
-          'PDF Report Button should be visible - wipeCompleted: ${swipeProvider.wipeCompleted}',
+          'PDF Report Button should be visible - wipeCompleted: ${swipeProvider.wipeCompleted}, isWiping: ${swipeProvider.isWiping}',
         );
 
         return Padding(
