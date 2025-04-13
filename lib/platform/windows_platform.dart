@@ -384,11 +384,17 @@ class WindowsPlatform implements PlatformInterface {
           );
         } else {
           // Default to SDelete
-          onOutput('Securely wiping free space with SDelete...');
+          onOutput('Securely wiping drive with SDelete...');
+
+          // Use more thorough SDelete parameters for complete drive wiping
+          // -p: Number of passes (3 for better security)
+          // -z: Zero free space after wiping
+          // -nobanner: Suppress the banner
           var sdeleteProcess = await Process.start(_sDeletePath, [
             '-p',
             '3',
             '-z',
+            '-nobanner',
             drive.location,
           ], runInShell: true);
 
@@ -421,10 +427,64 @@ class WindowsPlatform implements PlatformInterface {
               onOutput(
                 'Drive ${drive.name} has been securely wiped with SDelete',
               );
+
+              // After successful SDelete operation, format the drive to make it usable again
+              onOutput(
+                'Formatting drive ${drive.name} to make it usable again...',
+              );
+
+              // Extract disk number from drive location
+              final diskNumber = _extractDriveNumber(drive.location);
+              if (diskNumber != null) {
+                // Create a diskpart script for formatting
+                await _createDiskpartScript(diskNumber);
+
+                // Run diskpart with the script
+                onOutput('Running diskpart to format the drive...');
+                final formatProcess = await Process.start('diskpart', [
+                  '/s',
+                  _diskpartScriptPath,
+                ], runInShell: true);
+
+                // Handle output
+                formatProcess.stdout
+                    .transform(utf8.decoder)
+                    .transform(const LineSplitter())
+                    .listen((line) {
+                      if (line.isNotEmpty) {
+                        log(line.trim());
+                        onOutput(line);
+                      }
+                    });
+
+                formatProcess.stderr
+                    .transform(utf8.decoder)
+                    .transform(const LineSplitter())
+                    .listen((line) {
+                      if (line.isNotEmpty) {
+                        log(line.trim());
+                        onError(line);
+                      }
+                    });
+
+                // Wait for format to complete
+                final formatExitCode = await formatProcess.exitCode;
+                if (formatExitCode != 0) {
+                  onError('Format failed with exit code $formatExitCode');
+                } else {
+                  onOutput(
+                    'Drive ${drive.name} has been successfully formatted and is ready to use',
+                  );
+                }
+              } else {
+                onError(
+                  'Could not determine disk number for ${drive.location}. Manual formatting may be required.',
+                );
+              }
             }
           } catch (e) {
-            log('Error waiting for SDelete to complete: $e');
-            onError('Error waiting for SDelete to complete: $e');
+            log('Error during drive operation: $e');
+            onError('Error during drive operation: $e');
             // Continue execution to prevent app crash
           }
         }
@@ -444,8 +504,9 @@ class WindowsPlatform implements PlatformInterface {
 select disk $diskNumber
 clean all
 create partition primary
-format fs=ntfs quick
+format fs=ntfs quick label="Wiped Drive"
 assign
+attributes disk clear readonly
 exit
 ''';
 
